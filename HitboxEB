@@ -1,0 +1,405 @@
+--========================================================--
+--  SISTEMA DE HITBOX V2 + GUI PREMIUM (CORRIGIDO)        --
+--========================================================--
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--// CONFIGURAÇÕES INICIAIS
+local Config = {
+    HitboxSize = 6,
+    HitboxTransparency = 0.8,
+    IgnoreTeam = true,
+    TargetPart = "Head", -- "Head", "HumanoidRootPart", "UpperTorso"
+    Enabled = false, -- Começa DESATIVADO como pediu
+    ShowDot = true -- Mostra o pontinho visual no slider
+}
+
+-- Variável para cachear as partes originais e evitar lag
+local OriginalSizes = {}
+
+------------------------------------------------------------
+--                  SISTEMA DE HITBOX                     --
+------------------------------------------------------------
+
+-- Função para resetar um jogador específico ao normal
+local function RestorePlayer(player)
+    if not player or not player.Character then return end
+    
+    local char = player.Character
+    for _, child in pairs(char:GetChildren()) do
+        if child:IsA("BasePart") and OriginalSizes[child] then
+            child.Size = OriginalSizes[child]
+            child.Transparency = 0
+            child.CanCollide = true
+            child.Massless = false
+            OriginalSizes[child] = nil -- Limpa do cache
+        end
+    end
+end
+
+-- Função para resetar TODOS (usada ao desativar o script)
+local function RestoreAll()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            RestorePlayer(plr)
+        end
+    end
+end
+
+-- Função principal de aplicar a hitbox
+local function ApplyHitbox(player)
+    if not Config.Enabled then return end
+    if not player.Character then return end
+    if Config.IgnoreTeam and player.Team == LocalPlayer.Team then 
+        RestorePlayer(player) -- Se for do time, garante que está normal
+        return 
+    end
+
+    local char = player.Character
+    local part = char:FindFirstChild(Config.TargetPart)
+    
+    -- Tenta achar partes R15 ou R6 compativeis se não achar direto
+    if not part then
+        if Config.TargetPart == "Torso" then
+            part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+        else
+            part = char:FindFirstChild(Config.TargetPart)
+        end
+    end
+
+    if part and part:IsA("BasePart") then
+        -- Salva o tamanho original se ainda não salvou
+        if not OriginalSizes[part] then
+            OriginalSizes[part] = part.Size
+        end
+
+        -- Aplica as mudanças
+        part.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+        part.Transparency = Config.HitboxTransparency
+        part.CanCollide = false
+        part.Massless = true
+    end
+end
+
+-- Loop Principal (Otimizado)
+RunService.RenderStepped:Connect(function()
+    if not Config.Enabled then return end
+    
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            ApplyHitbox(plr)
+        end
+    end
+end)
+
+-- Limpeza quando jogador sai
+Players.PlayerRemoving:Connect(function(plr)
+    -- Opcional: limpar cache se necessário
+end)
+
+
+------------------------------------------------------------
+--                  GUI GLASS DARK PREMIUM                --
+------------------------------------------------------------
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HitboxPremiumGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Enabled = false -- A GUI começa invisivel (abre com K)
+
+--// JANELA PRINCIPAL
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 420) -- Tamanho ajustado
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Arredondamento
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+-- Borda (Stroke)
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(60, 60, 60)
+UIStroke.Thickness = 2
+UIStroke.Transparency = 0.5
+UIStroke.Parent = MainFrame
+
+-- Efeito Blur (Opcional, simula vidro)
+-- Nota: Blur só funciona se estiver no Lighting ou se usar ImageLabel com blur, 
+-- aqui vamos usar transparência e cor escura para o efeito Glass.
+MainFrame.BackgroundTransparency = 0.15
+
+-- Layout List (Organização Automática)
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = MainFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.Parent = MainFrame
+UIPadding.PaddingTop = UDim.new(0, 15)
+UIPadding.PaddingBottom = UDim.new(0, 15)
+UIPadding.PaddingLeft = UDim.new(0, 15)
+UIPadding.PaddingRight = UDim.new(0, 15)
+
+--// COMPONENTES DA GUI
+
+local function CreateTitle(text)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 0, 30)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 20
+    Label.LayoutOrder = 0
+    Label.Parent = MainFrame
+    return Label
+end
+
+local function CreateLabel(text, order)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.LayoutOrder = order
+    Label.Parent = MainFrame
+end
+
+-- SLIDER FUNCTION (Mais robusta)
+local function CreateSlider(name, min, max, default, callback, order)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 50)
+    Container.BackgroundTransparency = 1
+    Container.LayoutOrder = order
+    Container.Parent = MainFrame
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 20)
+    Title.BackgroundTransparency = 1
+    Title.Text = name
+    Title.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Title.Font = Enum.Font.GothamMedium
+    Title.TextSize = 14
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Container
+
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Size = UDim2.new(1, 0, 0, 20)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Text = tostring(default)
+    ValueLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.TextSize = 14
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValueLabel.Parent = Container
+
+    local SliderBG = Instance.new("Frame")
+    SliderBG.Size = UDim2.new(1, 0, 0, 6)
+    SliderBG.Position = UDim2.new(0, 0, 0.7, 0)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    SliderBG.BorderSizePixel = 0
+    SliderBG.Parent = Container
+    local Corn1 = Instance.new("UICorner"); Corn1.CornerRadius = UDim.new(1,0); Corn1.Parent = SliderBG
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderBG
+    local Corn2 = Instance.new("UICorner"); Corn2.CornerRadius = UDim.new(1,0); Corn2.Parent = SliderFill
+
+    local Trigger = Instance.new("TextButton")
+    Trigger.Size = UDim2.new(1, 0, 1, 0)
+    Trigger.BackgroundTransparency = 1
+    Trigger.Text = ""
+    Trigger.Parent = SliderBG
+
+    local dragging = false
+
+    local function Update(input)
+        local pos = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+        local value = math.floor((min + (max - min) * pos) * 10) / 10 -- 1 casa decimal
+        
+        TweenService:Create(SliderFill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play()
+        ValueLabel.Text = tostring(value)
+        callback(value)
+    end
+
+    Trigger.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            Update(input)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            Update(input)
+        end
+    end)
+end
+
+-- BUTTON FUNCTION
+local function CreateToggleButton(text, defaultState, callback, order)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 0, 35)
+    Button.BackgroundColor3 = defaultState and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(50, 50, 50)
+    Button.Text = text .. ": " .. (defaultState and "ON" or "OFF")
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 14
+    Button.LayoutOrder = order
+    Button.Parent = MainFrame
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+
+    local currentState = defaultState
+
+    Button.MouseButton1Click:Connect(function()
+        currentState = not currentState
+        Button.Text = text .. ": " .. (currentState and "ON" or "OFF")
+        
+        -- Animação de cor
+        if currentState then
+            TweenService:Create(Button, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(60, 180, 60)}):Play()
+        else
+            TweenService:Create(Button, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
+        end
+        
+        callback(currentState)
+    end)
+    return Button
+end
+
+-- DROPDOWN SIMPLES
+local function CreateDropdown(order)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 35)
+    Container.BackgroundTransparency = 1
+    Container.LayoutOrder = order
+    Container.Parent = MainFrame
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 1, 0)
+    Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Button.Text = "Parte: " .. Config.TargetPart
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.GothamSemibold
+    Button.TextSize = 14
+    Button.Parent = Container
+    
+    local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0, 6); Corner.Parent = Button
+
+    -- Ciclar entre partes ao clicar
+    local parts = {"Head", "HumanoidRootPart", "Torso"}
+    local index = 1
+
+    Button.MouseButton1Click:Connect(function()
+        -- Reseta todos antes de trocar a parte para evitar bugs
+        RestoreAll()
+        
+        index = index + 1
+        if index > #parts then index = 1 end
+        
+        Config.TargetPart = parts[index]
+        Button.Text = "Parte: " .. Config.TargetPart
+    end)
+end
+
+
+--// CONSTRUÇÃO DA INTERFACE (ORDEM)
+
+CreateTitle("Hitbox Config • Premium") -- Ordem 0
+
+-- Slider Tamanho (Ordem 1)
+CreateSlider("Tamanho (Size)", 1, 25, Config.HitboxSize, function(val)
+    Config.HitboxSize = val
+end, 1)
+
+-- Slider Transparência (Ordem 2)
+CreateSlider("Transparência (0-1)", 0, 1, Config.HitboxTransparency, function(val)
+    Config.HitboxTransparency = val
+end, 2)
+
+-- Separador visual
+local Sep = Instance.new("Frame")
+Sep.Size = UDim2.new(1, 0, 0, 2)
+Sep.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Sep.BorderSizePixel = 0
+Sep.LayoutOrder = 3
+Sep.Parent = MainFrame
+
+-- Botão Ignorar Time (Ordem 4)
+CreateToggleButton("Ignorar Time", Config.IgnoreTeam, function(state)
+    Config.IgnoreTeam = state
+    RestoreAll() -- Reseta para aplicar a nova regra
+end, 4)
+
+-- Dropdown Parte do Corpo (Ordem 5)
+CreateDropdown(5)
+
+-- Espaço extra
+local Sep2 = Instance.new("Frame")
+Sep2.Size = UDim2.new(1, 0, 0, 10)
+Sep2.BackgroundTransparency = 1
+Sep2.LayoutOrder = 6
+Sep2.Parent = MainFrame
+
+-- BOTÃO MESTRE (LIGAR/DESLIGAR) (Ordem 7)
+local MainToggle = CreateToggleButton("STATUS", Config.Enabled, function(state)
+    Config.Enabled = state
+    if not state then
+        RestoreAll() -- CRÍTICO: Reseta todos os players ao desligar
+    end
+end, 7)
+-- Força a cor vermelha/verde para o botão mestre para destaque
+MainToggle.BackgroundColor3 = Config.Enabled and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(180, 60, 60)
+MainToggle.MouseButton1Click:Connect(function()
+     -- Sobrescreve a cor padrão para Vermelho quando OFF
+    if not Config.Enabled then
+        TweenService:Create(MainToggle, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(180, 60, 60)}):Play()
+    end
+end)
+
+
+--// ATALHO DE TECLADO
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+--// NOTIFICAÇÃO INICIAL
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Hitbox Loaded";
+    Text = "Pressione 'K' para abrir o menu.";
+    Duration = 5;
+})
