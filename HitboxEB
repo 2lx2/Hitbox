@@ -484,7 +484,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Script Fixed Loaded";
-    Text = "No Grey Box + No Freezing";
+    Title = "Hitbox";
+    Text = "Aperte a tecla K para abrir!";
     Duration = 3;
 })
