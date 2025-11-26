@@ -1,5 +1,5 @@
 --========================================================--
---  HITBOX V3 FIXED + ESP "ALL PLAYERS" (V5)              --
+--  HITBOX V3 FIXED + ESP "TEAM COLOR" GLOBAL (V5)        --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -12,12 +12,13 @@ local LocalPlayer = Players.LocalPlayer
 local Config = {
     HitboxSize = 6,
     HitboxTransparency = 0.8,
-    IgnoreTeam = true, -- Isso ainda afeta a Hitbox (para não bater em amigos), mas o ESP agora ignora isso
+    IgnoreTeam = true, -- Esta opção agora afeta APENAS a Hitbox
     TargetPart = "Head", -- "Head", "HumanoidRootPart", "Torso"
     Enabled = false,
     ShowDot = false,
     -- Configurações ESP
     ESPEnabled = false,
+    -- A cor é automática baseada no time, Default Red se sem time.
     DefaultESPColor = Color3.fromRGB(255, 40, 40) 
 }
 
@@ -25,7 +26,7 @@ local Config = {
 local OriginalSizes = setmetatable({}, {__mode = "k"})
 
 ------------------------------------------------------------
---                      ESP MANAGER                       --
+--                      ESP MANAGER (AGORA GLOBAL)        --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -41,32 +42,32 @@ local function ApplyESP(player)
         return 
     end
     if not player or not player.Character then return end
-    if player == LocalPlayer then return end -- Não aplicar em si mesmo
+    if player == LocalPlayer then return end -- EXCLUSÃO OBRIGATÓRIA: Não aplicar em si mesmo
     
-    -- REMOVI A CHECAGEM DE TIME AQUI.
-    -- Agora o ESP aplica em TODOS, mas usa a cor do time para diferenciar.
+    -- A MUDANÇA ESTÁ AQUI: Removemos a checagem de time (Config.IgnoreTeam)
+    -- O ESP agora aplica-se a TODOS os outros jogadores.
 
     local char = player.Character
     
     -- Evita criar duplicados
     if char:FindFirstChild("ESPHighlight") then return end
 
-    -- DEFINIÇÃO INTELIGENTE DA COR (Baseada no Time)
+    -- DEFINIÇÃO INTELIGENTE DA COR
     local targetColor = Config.DefaultESPColor
     if player.TeamColor then
         -- Converte a BrickColor do time para RGB real
         targetColor = player.TeamColor.Color 
     end
 
-    -- Criação do Highlight (Método Otimizado)
+    -- Criação do Highlight (Método Otimizado - Vê através de tudo)
     local hl = Instance.new("Highlight")
     hl.Name = "ESPHighlight"
     hl.Adornee = char
     hl.Parent = char
-    hl.FillTransparency = 1 -- 1 = Apenas Borda
+    hl.FillTransparency = 1 -- Apenas Borda
     hl.OutlineColor = targetColor
     hl.OutlineTransparency = 0
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Vê através das paredes
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Vê através das paredes!
 end
 
 local function UpdateAllESP()
@@ -82,7 +83,7 @@ local function UpdateAllESP()
 end
 
 ------------------------------------------------------------
---                      HITBOX CORE                       --
+--                      HITBOX CORE (INTACTO)              --
 ------------------------------------------------------------
 
 local function safeSetPartProps(part, props)
@@ -140,11 +141,9 @@ local function ApplyHitbox(player)
     if not Config.Enabled then return end
     if not player or not player.Character then return end
     
-    -- A Hitbox continua respeitando o time para você não bater nos amigos sem querer
+    -- Checagem de Time da Hitbox (mantida)
     if Config.IgnoreTeam and player.Team == LocalPlayer.Team then
-        RestorePlayer(player) -- Restaura hitbox original dos amigos
-        -- Mas reaplica o ESP se estiver ativado, pois RestorePlayer remove se não cuidar
-        if Config.ESPEnabled then ApplyESP(player) end
+        RestorePlayer(player)
         return
     end
 
@@ -176,7 +175,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Verificação de Segurança do ESP (Garante que todos tenham ESP)
+    -- Verificação de Segurança do ESP (Garante que se aplica em novos jogadores rapidamente)
     if Config.ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
@@ -188,7 +187,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Eventos de Player
+-- Eventos de Player (Para limpeza e aplicação inicial)
 Players.PlayerRemoving:Connect(function(plr)
     RestorePlayer(plr)
 end)
@@ -220,11 +219,11 @@ for _, plr in pairs(Players:GetPlayers()) do
 end
 
 ------------------------------------------------------------
---                  GUI (HITBOX + ESP TEAM COLOR)         --
+--                 GUI (INTACTA)                          --
 ------------------------------------------------------------
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HitboxPremiumV5_ESP_All"
+ScreenGui.Name = "HitboxPremiumV5_GlobalESP"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -309,7 +308,7 @@ local function CreateSlider(name, min, max, default, callback, order)
     local Corn1 = Instance.new("UICorner"); Corn1.CornerRadius = UDim.new(1,0); Corn1.Parent = SliderBG
 
     local norm = 0
-    if max ~= min then norm = (default - min)/(max - min) end
+    if max ~= min then norm = (default - min)/(max - min) then end
     local SliderFill = Instance.new("Frame"); SliderFill.Size = UDim2.new(math.clamp(norm,0,1),0,1,0); SliderFill.BackgroundColor3 = Color3.fromRGB(90,90,220); SliderFill.BorderSizePixel = 0; SliderFill.Parent = SliderBG
     local Corn2 = Instance.new("UICorner"); Corn2.CornerRadius = UDim.new(1,0); Corn2.Parent = SliderFill
 
@@ -398,17 +397,16 @@ CreateSlider("Transparency", 0, 1, Config.HitboxTransparency, function(val) Conf
 
 local Sep = Instance.new("Frame"); Sep.Size = UDim2.new(1,0,0,1); Sep.BackgroundColor3 = Color3.fromRGB(60,60,70); Sep.BorderSizePixel = 0; Sep.LayoutOrder = 3; Sep.Parent = MainFrame
 
--- Botão TEAM CHECK (Controla APENAS A HITBOX)
--- O ESP agora é sempre global se ativado
-CreateToggleButton("Hitbox Safe Team", Config.IgnoreTeam, function(state) 
+-- Botão TEAM CHECK (Controla se vê amigos na HITBOX - ESP é global)
+CreateToggleButton("Hitbox Team Check", Config.IgnoreTeam, function(state) 
     Config.IgnoreTeam = state; 
     RestoreAll()
 end, 4)
 
 CreateDropdown(5)
 
--- Botão ESP (Aplica em TODOS com cor do time)
-local ESPButton = CreateToggleButton("ESP PLAYERS", Config.ESPEnabled, function(state)
+-- Botão ESP (AGORA GLOBAL)
+local ESPButton = CreateToggleButton("ESP GLOBAL TEAM COLOR", Config.ESPEnabled, function(state)
     Config.ESPEnabled = state
     UpdateAllESP()
 end, 6)
@@ -436,7 +434,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "ESP Updated";
-    Text = "ESP Visible for Everyone!";
+    Title = "ESP V5 Loaded";
+    Text = "Global ESP Active. Press 'K'.";
     Duration = 3;
 })
