@@ -408,7 +408,7 @@ end, 4)
 CreateDropdown(5)
 
 -- Botão ESP (Aplica em TODOS com cor do time)
-local ESPButton = CreateToggleButton("ESP ALL PLAYERS", Config.ESPEnabled, function(state)
+local ESPButton = CreateToggleButton("ESP PLAYERS", Config.ESPEnabled, function(state)
     Config.ESPEnabled = state
     UpdateAllESP()
 end, 6)
