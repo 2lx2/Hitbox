@@ -1,5 +1,5 @@
 --========================================================--
---    HITBOX V6 FIXED (NO FREEZE PATCHED) + ESP           --
+--   HITBOX V7 SAFETY (MEMORY FIX + FORCE RESTORE)        --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -28,11 +28,13 @@ local Config = {
     DefaultESPColor = Color3.fromRGB(255, 40, 40) 
 }
 
--- [CORREÇÃO] Mudamos o nome para OriginalProps porque agora salvamos mais do que só o tamanho
-local OriginalProps = setmetatable({}, {__mode = "k"})
+-- [CORREÇÃO CRÍTICA V7] 
+-- Removemos o __mode="k" (Weak Table). Agora é uma tabela forte.
+-- Isso impede que o executor "limpe" os tamanhos originais da memória durante o jogo.
+local OriginalSizes = {} 
 
 ------------------------------------------------------------
---                      ESP MANAGER V6                    --
+--                      ESP MANAGER                       --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -67,6 +69,7 @@ local function ApplyESP(player)
         targetColor = player.TeamColor.Color 
     end
     
+    -- Highlight
     if not char:FindFirstChild("ESPHighlight") then
         local hl = Instance.new("Highlight")
         hl.Name = "ESPHighlight"
@@ -78,6 +81,7 @@ local function ApplyESP(player)
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
 
+    -- Hitbox Box (SelectionBox)
     if targetPartObj and not char:FindFirstChild("HitboxBox") then
         local sb = Instance.new("SelectionBox")
         sb.Name = "HitboxBox"
@@ -89,6 +93,7 @@ local function ApplyESP(player)
         sb.SurfaceTransparency = 0.8
     end
 
+    -- Tag Amigo
     if Whitelist[player.Name] then
         local head = char:FindFirstChild("Head")
         if head and not head:FindFirstChild("FriendTag") then
@@ -108,7 +113,7 @@ local function ApplyESP(player)
             txt.TextColor3 = Color3.fromRGB(0, 255, 127)
             txt.TextStrokeTransparency = 0
             txt.Font = Enum.Font.GothamBlack
-            txt.TextSize = 14
+            txt.TextSize = 13
         end
     end
 end
@@ -126,42 +131,50 @@ local function UpdateAllESP()
 end
 
 ------------------------------------------------------------
---                      HITBOX CORE                       --
+--                  HITBOX CORE (SAFE)                    --
 ------------------------------------------------------------
 
 local function safeSetPartProps(part, props)
     if not part or not part:IsA("BasePart") then return end
-    local ok, err = pcall(function()
+    pcall(function()
         for k, v in pairs(props) do
             part[k] = v
         end
     end)
-    if not ok then warn("safeSetPartProps error:", err) end
 end
 
 local function RestorePlayer(player)
     if not player or not player.Character then return end
     local char = player.Character
     
-    -- Restaura Hitbox usando as propriedades originais salvas
     for _, child in pairs(char:GetChildren()) do
-        if child:IsA("BasePart") and OriginalProps[child] then
-            local props = OriginalProps[child]
+        if child:IsA("BasePart") then
+            -- [CORREÇÃO V7] Lógica de Restauração Blindada
+            local savedSize = OriginalSizes[child]
             
-            -- Lógica para manter RootPart invisível se necessário, mas respeitando as propriedades salvas
-            local currentTransparency = props.Transparency
-            if child.Name == "HumanoidRootPart" then
-                currentTransparency = 1
+            -- SAFETY CHECK: Se não achou o tamanho salvo, mas é a cabeça e ela tá gigante (>2 studs),
+            -- Forçamos um tamanho padrão. Isso impede o bug da cabeça travada.
+            if not savedSize and child.Name == "Head" and child.Size.Y > 2 then
+                -- Tamanho padrão genérico para R6/R15
+                savedSize = Vector3.new(1.2, 1, 1.2) 
             end
 
-            safeSetPartProps(child, {
-                Size = props.Size,
-                CanCollide = props.CanCollide, -- [CORREÇÃO] Restaura o valor original exato
-                Massless = props.Massless,     -- [CORREÇÃO] Restaura o valor original exato
-                Transparency = currentTransparency
-            })
-            
-            OriginalProps[child] = nil
+            -- Se achamos um tamanho (seja salvo ou o forçado acima)
+            if savedSize then
+                local originalTransparency = 0
+                if child.Name == "HumanoidRootPart" then
+                    originalTransparency = 1
+                end
+
+                safeSetPartProps(child, {
+                    Size = savedSize,
+                    Transparency = originalTransparency,
+                    CanCollide = true,   -- Garante colisão
+                    Massless = false     -- Garante peso normal (corrige o andar parado)
+                })
+                -- Limpamos da tabela pois já restauramos
+                OriginalSizes[child] = nil
+            end
         end
     end
     
@@ -199,29 +212,26 @@ local function ApplyHitbox(player)
 
     local part = findTargetPart(player.Character, Config.TargetPart)
     if part and part:IsA("BasePart") then
-        -- [CORREÇÃO] Salva todas as propriedades físicas importantes, não só o tamanho
-        if not OriginalProps[part] then
-            OriginalProps[part] = {
-                Size = part.Size,
-                CanCollide = part.CanCollide,
-                Massless = part.Massless,
-                Transparency = part.Transparency
-            }
+        -- Salva o tamanho original se ainda não tiver salvo
+        if not OriginalSizes[part] then
+            OriginalSizes[part] = part.Size
         end
 
         local desired = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
 
-        if part.Size ~= desired then
+        -- Otimização: Só aplica se o tamanho estiver diferente
+        if (part.Size - desired).Magnitude > 0.1 then
             safeSetPartProps(part, { Size = desired, CanCollide = false, Massless = true })
         end
+        
         if part.Transparency ~= Config.HitboxTransparency then
             safeSetPartProps(part, { Transparency = Config.HitboxTransparency })
         end
     end
 end
 
+-- LOOP PRINCIPAL
 RunService.RenderStepped:Connect(function()
-    -- Lógica Hitbox
     if Config.Enabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer then
@@ -230,7 +240,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Lógica ESP
+    -- Garante ESP
     if Config.ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
@@ -243,39 +253,35 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-Players.PlayerRemoving:Connect(function(plr) RestorePlayer(plr) end)
+Players.PlayerRemoving:Connect(function(plr) 
+    -- Limpeza limpa apenas para o jogador que saiu
+    if plr.Character then RestorePlayer(plr) end
+end)
 
 Players.PlayerAdded:Connect(function(plr)
-    if plr.Character then
-        ApplyESP(plr) 
-        plr.CharacterRemoving:Connect(function() RestorePlayer(plr) end)
-    end
     plr.CharacterAdded:Connect(function(char)
-        task.wait(0.2) 
+        task.wait(0.5)
         if Config.ESPEnabled then ApplyESP(plr) end
-        if not Config.Enabled then RestorePlayer(plr) end
     end)
 end)
 
 for _, plr in pairs(Players:GetPlayers()) do
     if plr ~= LocalPlayer then
-        if plr.Character then
-            if Config.ESPEnabled then ApplyESP(plr) end
-            plr.CharacterRemoving:Connect(function() RestorePlayer(plr) end)
-        end
         plr.CharacterAdded:Connect(function(char)
-            task.wait(0.2)
+            task.wait(0.5)
             if Config.ESPEnabled then ApplyESP(plr) end
         end)
     end
 end
 
 ------------------------------------------------------------
---                  GUI (HITBOX + ESP REAL SIZE)          --
+--                        GUI                             --
 ------------------------------------------------------------
+-- Mantive a GUI exatamente igual para não confundir
+-- Apenas mudei o nome interno para controle de versão
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HitboxPremiumV6_Fixed_NoFreeze"
+ScreenGui.Name = "HitboxV7_Safety_Core" 
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -442,7 +448,7 @@ local function CreateDropdown(order)
 end
 
 -- Construção da UI
-CreateTitle("Hitbox & ESP Fixed")
+CreateTitle("Hitbox & ESP V7 Fixed")
 CreateSlider("Size (Studs)", 1, 30, Config.HitboxSize, function(val) Config.HitboxSize = val end, 1)
 CreateSlider("Transparency", 0, 1, Config.HitboxTransparency, function(val) Config.HitboxTransparency = val end, 2)
 
@@ -483,7 +489,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Anti-Freeze Fixed";
-    Text = "Bug Visual Resolvido!";
+    Title = "Anti-Freeze V7";
+    Text = "Memória corrigida.";
     Duration = 3;
 })
