@@ -1,5 +1,5 @@
 --========================================================--
---   HITBOX V6 FIXED (NO GREY BOX + NO FREEZE) + ESP      --
+--    HITBOX V6 FIXED (NO FREEZE PATCHED) + ESP           --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -28,8 +28,8 @@ local Config = {
     DefaultESPColor = Color3.fromRGB(255, 40, 40) 
 }
 
--- Weak table para evitar memory leaks
-local OriginalSizes = setmetatable({}, {__mode = "k"})
+-- [CORREÇÃO] Mudamos o nome para OriginalProps porque agora salvamos mais do que só o tamanho
+local OriginalProps = setmetatable({}, {__mode = "k"})
 
 ------------------------------------------------------------
 --                      ESP MANAGER V6                    --
@@ -38,15 +38,12 @@ local OriginalSizes = setmetatable({}, {__mode = "k"})
 local function RemoveESP(char)
     if not char then return end
     
-    -- Remove Highlight (Brilho no corpo)
     local h = char:FindFirstChild("ESPHighlight")
     if h then h:Destroy() end
     
-    -- Remove SelectionBox (Caixa da Hitbox Real)
     local s = char:FindFirstChild("HitboxBox")
     if s then s:Destroy() end
     
-    -- Remove Texto de Amigo
     local head = char:FindFirstChild("Head")
     if head and head:FindFirstChild("FriendTag") then
         head.FriendTag:Destroy()
@@ -54,25 +51,22 @@ local function RemoveESP(char)
 end
 
 local function ApplyESP(player)
-    -- Se ESP estiver desligado, limpa tudo
     if not Config.ESPEnabled then 
         if player.Character then RemoveESP(player.Character) end
         return 
     end
     
     if not player or not player.Character then return end
-    if player == LocalPlayer then return end -- Não aplicar em si mesmo
+    if player == LocalPlayer then return end
 
     local char = player.Character
     local targetPartObj = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("Head")
 
-    -- 1. DEFINIÇÃO DA COR (Baseada no Time)
     local targetColor = Config.DefaultESPColor
     if player.TeamColor then
         targetColor = player.TeamColor.Color 
     end
     
-    -- 2. HIGHLIGHT (Brilho no Corpo todo)
     if not char:FindFirstChild("ESPHighlight") then
         local hl = Instance.new("Highlight")
         hl.Name = "ESPHighlight"
@@ -84,11 +78,10 @@ local function ApplyESP(player)
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
 
-    -- 3. SELECTION BOX (A SOLUÇÃO PARA HITBOX "INVISÍVEL")
     if targetPartObj and not char:FindFirstChild("HitboxBox") then
         local sb = Instance.new("SelectionBox")
         sb.Name = "HitboxBox"
-        sb.Adornee = targetPartObj -- Cola na cabeça/parte alvo
+        sb.Adornee = targetPartObj
         sb.Parent = char
         sb.Color3 = targetColor
         sb.LineThickness = 0.05
@@ -96,7 +89,6 @@ local function ApplyESP(player)
         sb.SurfaceTransparency = 0.8
     end
 
-    -- 4. WHITELIST TAG (Texto "AMIGO")
     if Whitelist[player.Name] then
         local head = char:FindFirstChild("Head")
         if head and not head:FindFirstChild("FriendTag") then
@@ -151,22 +143,25 @@ local function RestorePlayer(player)
     if not player or not player.Character then return end
     local char = player.Character
     
-    -- Restaura Hitbox
+    -- Restaura Hitbox usando as propriedades originais salvas
     for _, child in pairs(char:GetChildren()) do
-        if child:IsA("BasePart") and OriginalSizes[child] then
-            -- CORREÇÃO AQUI: Verifica se é o RootPart para deixar invisível
-            local originalTransparency = 0
+        if child:IsA("BasePart") and OriginalProps[child] then
+            local props = OriginalProps[child]
+            
+            -- Lógica para manter RootPart invisível se necessário, mas respeitando as propriedades salvas
+            local currentTransparency = props.Transparency
             if child.Name == "HumanoidRootPart" then
-                originalTransparency = 1
+                currentTransparency = 1
             end
 
             safeSetPartProps(child, {
-                Size = OriginalSizes[child],
-                Transparency = originalTransparency, -- Aplica a transparência correta
-                CanCollide = true,
-                Massless = false
+                Size = props.Size,
+                CanCollide = props.CanCollide, -- [CORREÇÃO] Restaura o valor original exato
+                Massless = props.Massless,     -- [CORREÇÃO] Restaura o valor original exato
+                Transparency = currentTransparency
             })
-            OriginalSizes[child] = nil
+            
+            OriginalProps[child] = nil
         end
     end
     
@@ -189,7 +184,6 @@ local function findTargetPart(char, target)
     if target == "Torso" then
         return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
     end
-    -- Se não achar nada, retorna a cabeça. Evitamos retornar HumanoidRootPart para hitbox visual.
     return char:FindFirstChild("Head") 
 end
 
@@ -205,8 +199,14 @@ local function ApplyHitbox(player)
 
     local part = findTargetPart(player.Character, Config.TargetPart)
     if part and part:IsA("BasePart") then
-        if not OriginalSizes[part] then
-            OriginalSizes[part] = part.Size
+        -- [CORREÇÃO] Salva todas as propriedades físicas importantes, não só o tamanho
+        if not OriginalProps[part] then
+            OriginalProps[part] = {
+                Size = part.Size,
+                CanCollide = part.CanCollide,
+                Massless = part.Massless,
+                Transparency = part.Transparency
+            }
         end
 
         local desired = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
@@ -230,7 +230,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Garante que o ESP (Box, Highlight e Texto) esteja lá
+    -- Lógica ESP
     if Config.ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
@@ -275,7 +275,7 @@ end
 ------------------------------------------------------------
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HitboxPremiumV6_Fixed"
+ScreenGui.Name = "HitboxPremiumV6_Fixed_NoFreeze"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -426,7 +426,6 @@ local function CreateDropdown(order)
     local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0,6); Corner.Parent = Button
     local Stroke = Instance.new("UIStroke"); Stroke.Color = Color3.fromRGB(60,60,70); Stroke.Thickness = 1; Stroke.Parent = Button;
 
-    -- CORREÇÃO AQUI: Removido HumanoidRootPart para evitar o bug de congelamento
     local parts = {"Head", "Torso"} 
     local index = 1
     for i, v in ipairs(parts) do
@@ -484,7 +483,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Hitbox";
-    Text = "Aperte a tecla K para abrir!";
+    Title = "Anti-Freeze Fixed";
+    Text = "Bug Visual Resolvido!";
     Duration = 3;
 })
