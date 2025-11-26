@@ -489,7 +489,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Anti-Freeze V7";
-    Text = "Memória corrigida.";
+    Title = "Hitbox";
+    Text = "Aperte a tecla K para ativar!";
     Duration = 3;
 })
