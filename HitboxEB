@@ -108,7 +108,7 @@ local function ApplyESP(player)
             txt.TextColor3 = Color3.fromRGB(0, 255, 127)
             txt.TextStrokeTransparency = 0
             txt.Font = Enum.Font.GothamBlack
-            txt.TextSize = 11
+            txt.TextSize = 14
         end
     end
 end
