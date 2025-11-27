@@ -34,7 +34,7 @@ local Config = {
 local OriginalSizes = {} 
 
 ------------------------------------------------------------
---                      ESP MANAGER                       --
+--                      ESP MANAGER                        --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -64,33 +64,41 @@ local function ApplyESP(player)
     local char = player.Character
     local targetPartObj = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("Head")
 
+    -- [CORREÇÃO TEAM COLOR INSTANTÂNEA]
+    -- O script pega a cor atual do time a cada frame
     local targetColor = Config.DefaultESPColor
     if player.TeamColor then
         targetColor = player.TeamColor.Color 
     end
     
     -- Highlight
-    if not char:FindFirstChild("ESPHighlight") then
-        local hl = Instance.new("Highlight")
+    local hl = char:FindFirstChild("ESPHighlight")
+    if not hl then
+        hl = Instance.new("Highlight")
         hl.Name = "ESPHighlight"
         hl.Adornee = char
         hl.Parent = char
         hl.FillTransparency = 1 
-        hl.OutlineColor = targetColor
         hl.OutlineTransparency = 0
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
+    -- [ATUALIZAÇÃO DE COR] Força a cor a atualizar sempre (Resolve a troca de time)
+    hl.OutlineColor = targetColor
 
     -- Hitbox Box (SelectionBox)
-    if targetPartObj and not char:FindFirstChild("HitboxBox") then
-        local sb = Instance.new("SelectionBox")
-        sb.Name = "HitboxBox"
-        sb.Adornee = targetPartObj
-        sb.Parent = char
+    if targetPartObj then
+        local sb = char:FindFirstChild("HitboxBox")
+        if not sb then
+            sb = Instance.new("SelectionBox")
+            sb.Name = "HitboxBox"
+            sb.Adornee = targetPartObj
+            sb.Parent = char
+            sb.LineThickness = 0.05
+            sb.Transparency = 0.3
+            sb.SurfaceTransparency = 0.8
+        end
+        -- [ATUALIZAÇÃO DE COR] Força a cor a atualizar sempre
         sb.Color3 = targetColor
-        sb.LineThickness = 0.05
-        sb.Transparency = 0.3
-        sb.SurfaceTransparency = 0.8
     end
 
     -- Tag Amigo
@@ -244,10 +252,8 @@ RunService.RenderStepped:Connect(function()
     if Config.ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
-                if not plr.Character:FindFirstChild("ESPHighlight") or 
-                   not plr.Character:FindFirstChild("HitboxBox") then
-                    ApplyESP(plr)
-                end
+                -- Chamamos ApplyESP sempre para garantir a atualização da cor em tempo real
+                ApplyESP(plr)
             end
         end
     end
@@ -275,7 +281,7 @@ for _, plr in pairs(Players:GetPlayers()) do
 end
 
 ------------------------------------------------------------
---                        GUI                             --
+--                         GUI                            --
 ------------------------------------------------------------
 -- Mantive a GUI exatamente igual para não confundir
 -- Apenas mudei o nome interno para controle de versão
