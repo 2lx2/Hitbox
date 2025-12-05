@@ -490,21 +490,33 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         ScreenGui.Enabled = not ScreenGui.Enabled
     end
 
-    -- [NOVO] Tecla Insert para ativar/desativar ESP
+    -- Tecla Insert para ativar/desativar ESP
     if input.KeyCode == Enum.KeyCode.Insert then
         Config.ESPEnabled = not Config.ESPEnabled
         UpdateAllESP()
         
-        -- Atualiza visualmente o botão da GUI para não ficar dessincronizado
+        -- Atualiza visualmente o botão de ESP
         local newState = Config.ESPEnabled
         ESPButton.Text = "ESP (BOX + NAMES)  [" .. (newState and "ON" or "OFF") .. "]"
         local targetColor = newState and Color3.fromRGB(60,160,60) or Color3.fromRGB(40,40,45)
         TweenService:Create(ESPButton, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
     end
+
+    -- [NOVO] Tecla Delete para ativar/desativar HITBOX
+    if input.KeyCode == Enum.KeyCode.Delete then
+        Config.Enabled = not Config.Enabled
+        if not Config.Enabled then RestoreAll() end -- Limpa as cabeças se desligar
+        
+        -- Atualiza visualmente o botão principal (HITBOX STATUS)
+        local newState = Config.Enabled
+        MainToggle.Text = "HITBOX STATUS  [" .. (newState and "ON" or "OFF") .. "]"
+        local targetColor = newState and Color3.fromRGB(50,180,50) or Color3.fromRGB(180,50,50)
+        TweenService:Create(MainToggle, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
+    end
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Hitbox";
-    Text = "Aperte 'K' p/ Menu e 'Insert' p/ ESP!";
+    Title = "Hitbox V7";
+    Text = "K: Menu | INS: ESP | DEL: Hitbox";
     Duration = 5;
 })
