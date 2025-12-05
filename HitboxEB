@@ -484,13 +484,27 @@ end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
+    
+    -- Tecla K para abrir/fechar Menu
     if input.KeyCode == Enum.KeyCode.K then
         ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+
+    -- [NOVO] Tecla Insert para ativar/desativar ESP
+    if input.KeyCode == Enum.KeyCode.Insert then
+        Config.ESPEnabled = not Config.ESPEnabled
+        UpdateAllESP()
+        
+        -- Atualiza visualmente o botão da GUI para não ficar dessincronizado
+        local newState = Config.ESPEnabled
+        ESPButton.Text = "ESP (BOX + NAMES)  [" .. (newState and "ON" or "OFF") .. "]"
+        local targetColor = newState and Color3.fromRGB(60,160,60) or Color3.fromRGB(40,40,45)
+        TweenService:Create(ESPButton, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
     end
 end)
 
 game.StarterGui:SetCore("SendNotification", {
     Title = "Hitbox";
-    Text = "Aperte a tecla K para ativar!";
-    Duration = 3;
+    Text = "Aperte 'K' p/ Menu e 'Insert' p/ ESP!";
+    Duration = 5;
 })
