@@ -1,5 +1,5 @@
 --========================================================--
---  HITBOX V7 SAFETY (MEMORY FIX + FORCE RESTORE)        --
+--  HITBOX V7 SAFETY + INTEGRATED HP (MINIMALIST VERSION) --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -23,18 +23,17 @@ local Config = {
     TargetPart = "Head", 
     Enabled = false,
     ShowDot = false,
-    -- Configurações ESP
+    -- Configurações ESP (HP agora está embutido aqui)
     ESPEnabled = false,
     DefaultESPColor = Color3.fromRGB(255, 40, 40) 
 }
 
 -- [CORREÇÃO CRÍTICA V7] 
--- Removemos o __mode="k" (Weak Table). Agora é uma tabela forte.
--- Isso impede que o executor "limpe" os tamanhos originais da memória durante o jogo.
+-- Tabela forte para impedir limpeza de memória pelo executor
 local OriginalSizes = {} 
 
 ------------------------------------------------------------
---                      ESP MANAGER                        --
+--                      ESP MANAGER                         --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -47,12 +46,14 @@ local function RemoveESP(char)
     if s then s:Destroy() end
     
     local head = char:FindFirstChild("Head")
-    if head and head:FindFirstChild("FriendTag") then
-        head.FriendTag:Destroy()
+    if head then
+        if head:FindFirstChild("FriendTag") then head.FriendTag:Destroy() end
+        if head:FindFirstChild("HealthTag") then head.HealthTag:Destroy() end
     end
 end
 
 local function ApplyESP(player)
+    -- Se o ESP estiver desligado, removemos tudo e paramos aqui
     if not Config.ESPEnabled then 
         if player.Character then RemoveESP(player.Character) end
         return 
@@ -63,13 +64,14 @@ local function ApplyESP(player)
 
     local char = player.Character
     local targetPartObj = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("Head")
+    local hum = char:FindFirstChild("Humanoid") 
 
     local targetColor = Config.DefaultESPColor
     if player.TeamColor then
         targetColor = player.TeamColor.Color 
     end
     
-    -- Highlight
+    -- 1. Highlight (Brilho em volta do personagem)
     if not char:FindFirstChild("ESPHighlight") then
         local hl = Instance.new("Highlight")
         hl.Name = "ESPHighlight"
@@ -81,7 +83,7 @@ local function ApplyESP(player)
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     end
 
-    -- Hitbox Box (SelectionBox)
+    -- 2. Hitbox Box (Caixa quadrada na cabeça/torso)
     if targetPartObj and not char:FindFirstChild("HitboxBox") then
         local sb = Instance.new("SelectionBox")
         sb.Name = "HitboxBox"
@@ -93,7 +95,85 @@ local function ApplyESP(player)
         sb.SurfaceTransparency = 0.8
     end
 
-    -- Tag Amigo
+    -- 3. SISTEMA DE VIDA (HP BAR) - VERSÃO ULTRA MINIMALISTA
+    if hum then
+        local head = char:FindFirstChild("Head")
+        if head then
+            local hpTag = head:FindFirstChild("HealthTag")
+            if not hpTag then
+                -- Criação da GUI de Vida
+                hpTag = Instance.new("BillboardGui")
+                hpTag.Name = "HealthTag"
+                hpTag.Adornee = head
+                -- [AJUSTE] Tamanho reduzido para ficar Minimalista
+                hpTag.Size = UDim2.new(0, 26, 0, 3) 
+                -- [AJUSTE] Aproximado levemente da cabeça
+                hpTag.StudsOffset = Vector3.new(0, 3.2, 0) 
+                hpTag.AlwaysOnTop = true
+                hpTag.Parent = head
+
+                -- Fundo (Background)
+                local bg = Instance.new("Frame")
+                bg.Name = "Back"
+                bg.Size = UDim2.new(1, 0, 1, 0)
+                bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Cinza escuro
+                bg.BackgroundTransparency = 0.2
+                bg.BorderSizePixel = 0
+                bg.Parent = hpTag
+                
+                -- Deixa o fundo redondinho
+                local corner1 = Instance.new("UICorner")
+                corner1.CornerRadius = UDim.new(1, 0)
+                corner1.Parent = bg
+
+                -- Barra de preenchimento (Fill)
+                local fill = Instance.new("Frame")
+                fill.Name = "Fill"
+                fill.Size = UDim2.new(1, 0, 1, 0)
+                fill.BorderSizePixel = 0
+                fill.Parent = bg
+                
+                -- Deixa a barra redondinha também
+                local corner2 = Instance.new("UICorner")
+                corner2.CornerRadius = UDim.new(1, 0)
+                corner2.Parent = fill
+
+                -- Texto do HP
+                local txt = Instance.new("TextLabel")
+                txt.Name = "HPText"
+                txt.Size = UDim2.new(1, 0, 0, 8) -- [AJUSTE] Altura do texto menor
+                txt.Position = UDim2.new(0, 0, -3.5, 0) -- [AJUSTE] Posição ajustada para o novo tamanho
+                txt.BackgroundTransparency = 1
+                txt.Text = "100"
+                txt.TextColor3 = Color3.fromRGB(255, 255, 255) 
+                txt.TextStrokeTransparency = 0.5 
+                txt.Font = Enum.Font.GothamBold
+                txt.TextSize = 8 -- [AJUSTE] Fonte menor e discreta
+                txt.Parent = bg
+            end
+
+            -- Atualização Lógica (Cor e Tamanho)
+            local currentHP = math.clamp(hum.Health, 0, hum.MaxHealth)
+            local maxHP = hum.MaxHealth
+            local percent = currentHP / maxHP
+
+            local fill = hpTag.Back.Fill
+            local txt = hpTag.Back.HPText
+
+            -- Animação suave da barra
+            TweenService:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(percent, 0, 1, 0)}):Play()
+            
+            -- Cor dinâmica (Verde -> Amarelo -> Vermelho)
+            local hpColor = Color3.fromHSV(math.clamp(percent, 0, 1) * 0.33, 1, 1) 
+            
+            fill.BackgroundColor3 = hpColor
+            
+            -- Texto
+            txt.Text = math.floor(currentHP)
+        end
+    end
+
+    -- 4. Tag Amigo
     if Whitelist[player.Name] then
         local head = char:FindFirstChild("Head")
         if head and not head:FindFirstChild("FriendTag") then
@@ -101,7 +181,7 @@ local function ApplyESP(player)
             bb.Name = "FriendTag"
             bb.Adornee = head
             bb.Size = UDim2.new(0, 100, 0, 40)
-            bb.StudsOffset = Vector3.new(0, 3, 0)
+            bb.StudsOffset = Vector3.new(0, 2, 0) 
             bb.AlwaysOnTop = true
             bb.Parent = head
 
@@ -149,17 +229,13 @@ local function RestorePlayer(player)
     
     for _, child in pairs(char:GetChildren()) do
         if child:IsA("BasePart") then
-            -- [CORREÇÃO V7] Lógica de Restauração Blindada
             local savedSize = OriginalSizes[child]
             
-            -- SAFETY CHECK: Se não achou o tamanho salvo, mas é a cabeça e ela tá gigante (>2 studs),
-            -- Forçamos um tamanho padrão. Isso impede o bug da cabeça travada.
+            -- SAFETY CHECK
             if not savedSize and child.Name == "Head" and child.Size.Y > 2 then
-                -- Tamanho padrão genérico para R6/R15
                 savedSize = Vector3.new(1.2, 1, 1.2) 
             end
 
-            -- Se achamos um tamanho (seja salvo ou o forçado acima)
             if savedSize then
                 local originalTransparency = 0
                 if child.Name == "HumanoidRootPart" then
@@ -169,10 +245,9 @@ local function RestorePlayer(player)
                 safeSetPartProps(child, {
                     Size = savedSize,
                     Transparency = originalTransparency,
-                    CanCollide = true,   -- Garante colisão
-                    Massless = false     -- Garante peso normal (corrige o andar parado)
+                    CanCollide = true,
+                    Massless = false 
                 })
-                -- Limpamos da tabela pois já restauramos
                 OriginalSizes[child] = nil
             end
         end
@@ -212,14 +287,12 @@ local function ApplyHitbox(player)
 
     local part = findTargetPart(player.Character, Config.TargetPart)
     if part and part:IsA("BasePart") then
-        -- Salva o tamanho original se ainda não tiver salvo
         if not OriginalSizes[part] then
             OriginalSizes[part] = part.Size
         end
 
         local desired = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
 
-        -- Otimização: Só aplica se o tamanho estiver diferente
         if (part.Size - desired).Magnitude > 0.1 then
             safeSetPartProps(part, { Size = desired, CanCollide = false, Massless = true })
         end
@@ -240,21 +313,25 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Garante ESP
+    -- Garante ESP (e HP)
     if Config.ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
+                -- Verifica se falta alguma parte do ESP (Box ou HealthTag)
                 if not plr.Character:FindFirstChild("ESPHighlight") or 
-                   not plr.Character:FindFirstChild("HitboxBox") then
+                   not plr.Character:FindFirstChild("HitboxBox") or
+                   not plr.Character:FindFirstChild("Head"):FindFirstChild("HealthTag") then
                     ApplyESP(plr)
                 end
+                
+                -- Atualiza a vida em tempo real
+                ApplyESP(plr)
             end
         end
     end
 end)
 
 Players.PlayerRemoving:Connect(function(plr) 
-    -- Limpeza limpa apenas para o jogador que saiu
     if plr.Character then RestorePlayer(plr) end
 end)
 
@@ -277,12 +354,10 @@ end
 ------------------------------------------------------------
 --                        GUI                             --
 ------------------------------------------------------------
--- Mantive a GUI exatamente igual para não confundir
--- Apenas mudei o nome interno para controle de versão
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HitboxV7_Safety_Core" 
-ScreenGui.DisplayOrder = 9999 -- Fica acima das GUIs do jogo
+ScreenGui.Name = "HitboxV7_Safety_HP_Clean" 
+ScreenGui.DisplayOrder = 9999 
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -290,7 +365,8 @@ ScreenGui.Enabled = false
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 480)
+-- Altura ajustada (Removemos 1 botão, então diminui um pouco em relação a anterior)
+MainFrame.Size = UDim2.new(0, 320, 0, 480) 
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -240)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
@@ -449,7 +525,7 @@ local function CreateDropdown(order)
 end
 
 -- Construção da UI
-CreateTitle("Hitbox & ESP V7 Fixed")
+CreateTitle("Hitbox & ESP V7 Clean")
 CreateSlider("Size (Studs)", 1, 30, Config.HitboxSize, function(val) Config.HitboxSize = val end, 1)
 CreateSlider("Transparency", 0, 1, Config.HitboxTransparency, function(val) Config.HitboxTransparency = val end, 2)
 
@@ -462,7 +538,8 @@ end, 4)
 
 CreateDropdown(5)
 
-local ESPButton = CreateToggleButton("ESP (BOX + NAMES)", Config.ESPEnabled, function(state)
+-- ESP agora controla TUDO (Boxes + Highlight + HP)
+local ESPButton = CreateToggleButton("ESP + HEALTH (ALL)", Config.ESPEnabled, function(state)
     Config.ESPEnabled = state
     UpdateAllESP()
 end, 6)
@@ -490,22 +567,22 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         ScreenGui.Enabled = not ScreenGui.Enabled
     end
 
-    -- Tecla Insert para ativar/desativar ESP
+    -- Tecla Insert para ativar/desativar ESP + HP
     if input.KeyCode == Enum.KeyCode.Insert then
         Config.ESPEnabled = not Config.ESPEnabled
         UpdateAllESP()
         
         -- Atualiza visualmente o botão de ESP
         local newState = Config.ESPEnabled
-        ESPButton.Text = "ESP (BOX + NAMES)  [" .. (newState and "ON" or "OFF") .. "]"
+        ESPButton.Text = "ESP + HEALTH (ALL)  [" .. (newState and "ON" or "OFF") .. "]"
         local targetColor = newState and Color3.fromRGB(60,160,60) or Color3.fromRGB(40,40,45)
         TweenService:Create(ESPButton, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
     end
 
-    -- [NOVO] Tecla Delete para ativar/desativar HITBOX
+    -- Tecla Delete para ativar/desativar HITBOX
     if input.KeyCode == Enum.KeyCode.Delete then
         Config.Enabled = not Config.Enabled
-        if not Config.Enabled then RestoreAll() end -- Limpa as cabeças se desligar
+        if not Config.Enabled then RestoreAll() end 
         
         -- Atualiza visualmente o botão principal (HITBOX STATUS)
         local newState = Config.Enabled
@@ -517,6 +594,6 @@ end)
 
 game.StarterGui:SetCore("SendNotification", {
     Title = "Hitbox V7";
-    Text = "K: Menu | INS: ESP | DEL: Hitbox";
+    Text = "K: Menu | INS: ESP/HP | DEL: Hitbox";
     Duration = 5;
 })
