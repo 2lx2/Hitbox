@@ -1,5 +1,5 @@
 --========================================================--
---  HITBOX V7 SAFETY + INTEGRATED HP (MINIMALIST VERSION) --
+--  HITBOX V7 SAFETY + INTEGRATED HP (ESCALA REALISTICA)  --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -33,7 +33,7 @@ local Config = {
 local OriginalSizes = {} 
 
 ------------------------------------------------------------
---                      ESP MANAGER                         --
+--                      ESP MANAGER                       --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -95,7 +95,7 @@ local function ApplyESP(player)
         sb.SurfaceTransparency = 0.8
     end
 
-    -- 3. SISTEMA DE VIDA (HP BAR) - VERSÃO ULTRA MINIMALISTA
+    -- 3. SISTEMA DE VIDA (HP BAR) - CORRIGIDO PARA ESCALA REAL (NÃO FICA GIGANTE)
     if hum then
         local head = char:FindFirstChild("Head")
         if head then
@@ -105,10 +105,15 @@ local function ApplyESP(player)
                 hpTag = Instance.new("BillboardGui")
                 hpTag.Name = "HealthTag"
                 hpTag.Adornee = head
-                -- [AJUSTE] Tamanho reduzido para ficar Minimalista
-                hpTag.Size = UDim2.new(0, 26, 0, 3) 
-                -- [AJUSTE] Aproximado levemente da cabeça
-                hpTag.StudsOffset = Vector3.new(0, 3.2, 0) 
+                
+                -- [CORREÇÃO AQUI] Mudado de Offset para Scale.
+                -- Antes: UDim2.new(0, 4, 0, 30) -> Tamanho fixo em pixels (fica enorme de longe)
+                -- Agora: UDim2.new(0.5, 0, 4, 0) -> Tamanho em Studs (diminui com a distância)
+                hpTag.Size = UDim2.new(0.5, 0, 4, 0) 
+                
+                -- Offset para o lado direito (3.5 studs)
+                hpTag.StudsOffset = Vector3.new(3.5, 0, 0) 
+                
                 hpTag.AlwaysOnTop = true
                 hpTag.Parent = head
 
@@ -116,12 +121,11 @@ local function ApplyESP(player)
                 local bg = Instance.new("Frame")
                 bg.Name = "Back"
                 bg.Size = UDim2.new(1, 0, 1, 0)
-                bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Cinza escuro
+                bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
                 bg.BackgroundTransparency = 0.2
                 bg.BorderSizePixel = 0
                 bg.Parent = hpTag
                 
-                -- Deixa o fundo redondinho
                 local corner1 = Instance.new("UICorner")
                 corner1.CornerRadius = UDim.new(1, 0)
                 corner1.Parent = bg
@@ -129,11 +133,13 @@ local function ApplyESP(player)
                 -- Barra de preenchimento (Fill)
                 local fill = Instance.new("Frame")
                 fill.Name = "Fill"
-                fill.Size = UDim2.new(1, 0, 1, 0)
+                fill.AnchorPoint = Vector2.new(0, 1) -- Enche de baixo pra cima
+                fill.Position = UDim2.new(0, 0, 1, 0)
+                fill.Size = UDim2.new(1, 0, 1, 0) 
+                
                 fill.BorderSizePixel = 0
                 fill.Parent = bg
                 
-                -- Deixa a barra redondinha também
                 local corner2 = Instance.new("UICorner")
                 corner2.CornerRadius = UDim.new(1, 0)
                 corner2.Parent = fill
@@ -141,14 +147,18 @@ local function ApplyESP(player)
                 -- Texto do HP
                 local txt = Instance.new("TextLabel")
                 txt.Name = "HPText"
-                txt.Size = UDim2.new(1, 0, 0, 8) -- [AJUSTE] Altura do texto menor
-                txt.Position = UDim2.new(0, 0, -3.5, 0) -- [AJUSTE] Posição ajustada para o novo tamanho
+                -- O texto fica acima da barra
+                txt.Size = UDim2.new(3, 0, 0.5, 0) 
+                txt.Position = UDim2.new(0.5, 0, -0.6, 0) 
+                txt.AnchorPoint = Vector2.new(0.5, 0) 
                 txt.BackgroundTransparency = 1
                 txt.Text = "100"
                 txt.TextColor3 = Color3.fromRGB(255, 255, 255) 
                 txt.TextStrokeTransparency = 0.5 
                 txt.Font = Enum.Font.GothamBold
-                txt.TextSize = 8 -- [AJUSTE] Fonte menor e discreta
+                
+                -- [CORREÇÃO] TextScaled ajuda a não ficar gigante ou ilegível
+                txt.TextScaled = true 
                 txt.Parent = bg
             end
 
@@ -160,12 +170,11 @@ local function ApplyESP(player)
             local fill = hpTag.Back.Fill
             local txt = hpTag.Back.HPText
 
-            -- Animação suave da barra
-            TweenService:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(percent, 0, 1, 0)}):Play()
+            -- Animação Vertical
+            TweenService:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, percent, 0)}):Play()
             
-            -- Cor dinâmica (Verde -> Amarelo -> Vermelho)
+            -- Cor dinâmica
             local hpColor = Color3.fromHSV(math.clamp(percent, 0, 1) * 0.33, 1, 1) 
-            
             fill.BackgroundColor3 = hpColor
             
             -- Texto
@@ -173,15 +182,16 @@ local function ApplyESP(player)
         end
     end
 
-    -- 4. Tag Amigo
+    -- 4. Tag Amigo (Também ajustado para não ficar gigante)
     if Whitelist[player.Name] then
         local head = char:FindFirstChild("Head")
         if head and not head:FindFirstChild("FriendTag") then
             local bb = Instance.new("BillboardGui")
             bb.Name = "FriendTag"
             bb.Adornee = head
-            bb.Size = UDim2.new(0, 100, 0, 40)
-            bb.StudsOffset = Vector3.new(0, 2, 0) 
+            -- Usando Scale aqui também para ficar proporcional
+            bb.Size = UDim2.new(6, 0, 1.5, 0) 
+            bb.StudsOffset = Vector3.new(0, 2.5, 0) 
             bb.AlwaysOnTop = true
             bb.Parent = head
 
@@ -193,7 +203,7 @@ local function ApplyESP(player)
             txt.TextColor3 = Color3.fromRGB(0, 255, 127)
             txt.TextStrokeTransparency = 0
             txt.Font = Enum.Font.GothamBlack
-            txt.TextSize = 13
+            txt.TextScaled = true -- Escala automática
         end
     end
 end
@@ -525,7 +535,7 @@ local function CreateDropdown(order)
 end
 
 -- Construção da UI
-CreateTitle("Hitbox & ESP V7 Clean")
+CreateTitle("Hitbox & ESP V7 Fixed")
 CreateSlider("Size (Studs)", 1, 30, Config.HitboxSize, function(val) Config.HitboxSize = val end, 1)
 CreateSlider("Transparency", 0, 1, Config.HitboxTransparency, function(val) Config.HitboxTransparency = val end, 2)
 
@@ -593,7 +603,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Hitbox V7";
+    Title = "Hitbox V7 Fixed";
     Text = "K: Menu | INS: ESP/HP | DEL: Hitbox";
     Duration = 5;
 })
