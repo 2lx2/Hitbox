@@ -10,8 +10,8 @@ local LocalPlayer = Players.LocalPlayer
 
 --// LISTA DE AMIGOS (WHITELIST)
 local Whitelist = {
-    ["PequenasGarotinhas"] = true,  -- Dono
-    ["carlos08016"] = true,    -- Amigo
+    ["4Rupture"] = true,  -- Dono
+    ["sixwy0"] = true,    -- Amigo
     -- ["OutroNick"] = true,
 }
 
