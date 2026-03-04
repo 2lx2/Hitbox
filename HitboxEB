@@ -517,6 +517,6 @@ end)
 
 game.StarterGui:SetCore("SendNotification", {
     Title = "Hitbox V7";
-    Text = "K: Menu | INS: ESP | DEL: Hitbox";
+    Text = "Home: Menu | INS: ESP | DEL: Hitbox";
     Duration = 5;
 })
