@@ -554,7 +554,7 @@ if game.PlaceId == 155615604 then
         local i=itens[n]
         if i and i.Parent~=char then i.Parent=bp end
         end
-        task.wait(0.2)
+        task.wait(0.3)
         organizando=false
         end
 
