@@ -1,5 +1,5 @@
 --========================================================--
---  HITBOX V7 SAFETY (MEMORY FIX + FORCE RESTORE)         --
+--  HITBOX V7 SAFETY (MEMORY FIX + FORCE RESTORE)        --
 --========================================================--
 
 local Players = game:GetService("Players")
@@ -34,7 +34,7 @@ local Config = {
 local OriginalSizes = {} 
 
 ------------------------------------------------------------
---                    ESP MANAGER                        --
+--                      ESP MANAGER                        --
 ------------------------------------------------------------
 
 local function RemoveESP(char)
@@ -520,67 +520,3 @@ game.StarterGui:SetCore("SendNotification", {
     Text = "Home: Menu | INS: ESP | DEL: Hitbox";
     Duration = 5;
 })
-
---========================================================--
---  VERIFICAÇÃO DE JOGO (SCRIPT 2 - INVENTÁRIO)           --
---========================================================--
-
-if game.PlaceId == 155615604 then
-    -- Usamos task.spawn para executar de forma independente, sem afetar o resto
-    task.spawn(function()
-        local Players=game:GetService("Players")
-        while not Players.LocalPlayer do task.wait() end
-        local p=Players.LocalPlayer
-        local organizando=false
-
-        local OrdemPrioridade={"Remington 870","MP5","Taser","Handcuffs","M9"}
-
-        local function Organizar()
-        if organizando then return end
-        local bp=p:FindFirstChild("Backpack")
-        local char=p.Character
-        if not bp or not char then return end
-        organizando=true
-        local itens={}
-        for _,n in ipairs(OrdemPrioridade) do
-        local i=bp:FindFirstChild(n) or char:FindFirstChild(n)
-        if i then itens[n]=i i:SetAttribute("JaOrganizado",true) end
-        end
-        for _,n in ipairs(OrdemPrioridade) do
-        local i=itens[n]
-        if i and i.Parent==bp then i.Parent=nil end
-        end
-        for _,n in ipairs(OrdemPrioridade) do
-        local i=itens[n]
-        if i and i.Parent~=char then i.Parent=bp end
-        end
-        task.wait(0.3)
-        organizando=false
-        end
-
-        local function Iniciar(bp)
-        if bp:GetAttribute("Monitorado") then return end
-        bp:SetAttribute("Monitorado",true)
-
-        task.spawn(function()
-        task.wait(0.5)
-        Organizar()
-        end)
-
-        bp.ChildAdded:Connect(function(i)
-        if i:IsA("Tool") and not i:GetAttribute("JaOrganizado") then
-        task.wait(0.8)
-        task.defer(Organizar)
-        end
-        end)
-        end
-
-        p.CharacterAdded:Connect(function()
-        local bp=p:WaitForChild("Backpack",3)
-        if bp then Iniciar(bp) end
-        end)
-
-        local b=p:FindFirstChild("Backpack")
-        if b then Iniciar(b) end
-    end)
-end
