@@ -576,7 +576,7 @@ if game.PlaceId == 155615604 then
         end
 
         p.CharacterAdded:Connect(function()
-        local bp=p:WaitForChild("Backpack",10)
+        local bp=p:WaitForChild("Backpack",3)
         if bp then Iniciar(bp) end
         end)
 
