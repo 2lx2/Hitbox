@@ -90,7 +90,7 @@ local function ApplyESP(player)
         sb.Color3 = targetColor
         sb.LineThickness = 0.05
         sb.Transparency = 0.3
-        sb.SurfaceTransparency = 1
+        sb.SurfaceTransparency = 0.9
     end
 
     -- Tag Amigo
