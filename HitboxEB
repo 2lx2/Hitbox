@@ -18,7 +18,7 @@ local Whitelist = {
 --// CONFIGURAÇÕES INICIAIS
 local Config = {
     HitboxSize = 8,
-    HitboxTransparency = 0.9,
+    HitboxTransparency = 1,
     IgnoreTeam = true,
     TargetPart = "Head", 
     Enabled = false,
